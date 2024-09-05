@@ -12,7 +12,8 @@
     "lint": "eslint --fix",
     "prettier": "prettier --write \"./**/*.{html,vue,ts,tsx,js,jsx,css,less,scss,json,md}\"",
     "prepare": "husky install",
-    "commitlint": "commitlint --config commitlint.config.cjs -e -V"
+    "commitlint": "commitlint --config commitlint.config.cjs -e -V",
+    "release": "release-it"
   },
   "dependencies": {
     "axios": "^1.6.8",
