@@ -2,12 +2,13 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import * as path from 'path'
 import eslintPlugin from 'vite-plugin-eslint'
+import DefineOptions from 'unplugin-vue-define-options/vite'
 
 export default defineConfig({
-  plugins: [vue(), eslintPlugin()],
+  plugins: [vue(), eslintPlugin(), DefineOptions()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, 'src'),
+      '@': path.resolve(__dirname, 'examples'),
     },
   },
   css: {
