@@ -25,6 +25,6 @@
       "@/*": ["examples/*"]
     }
   },
-  "include": ["packages/**/*.ts", "packages/**/*.tsx", "packages/**/*.vue"],
+  "include": ["packages/**/*.ts", "packages/**/*.d.ts", "packages/**/*.tsx", "packages/**/*.vue"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

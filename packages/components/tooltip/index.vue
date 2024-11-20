@@ -1,257 +1,158 @@
-<template>
-  <div
-    class="tooltip-container"
-    :class="{ 'tooltip-click': trigger === 'click' }"
-    @mouseover="handleMouseOver"
-    @mouseout="handleMouseOut"
-    @click="handleClick">
-    <slot></slot>
-    <div v-if="isTooltipVisible" :class="tooltipClass">
-      {{ content }}
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, watch, reactive, onMounted, computed } from 'vue'
+import { createPopper } from '@popperjs/core'
+import useCilckOutside from './useUtilTooltip'
+import { debounce } from 'lodash-es'
+import type { TooltipProps, TooltipEmits, TooltipInstance } from './types'
+import type { Instance } from '@popperjs/core'
 
-const positionOptions = [
-  'top',
-  'top-start',
-  'top-end',
-  'bottom',
-  'bottom-start',
-  'bottom-end',
-  'left',
-  'right',
-] as const
-type Position = (typeof positionOptions)[number]
-type Trigger = ['hover' | 'click'][number]
-const defaultTrigger: Trigger = 'hover'
+defineOptions({
+  name: 'YvTooltip',
+})
+// props属性
+const props = withDefaults(defineProps<TooltipProps>(), {
+  placement: 'bottom',
+  trigger: 'hover',
+  transition: 'fade',
+  openDelay: 0,
+  closeDelay: 0,
+})
+const triggerNode = ref<HTMLElement>()
+const popperNode = ref<HTMLElement>()
+const isOpen = ref<boolean>(false)
+const popperContainNode = ref<HTMLElement>()
+// popper实例
+let popperInstance: null | Instance = null
+const emits = defineEmits<TooltipEmits>()
 
-const props = defineProps<{
-  content: string
-  position?: Position
-  trigger?: Trigger
-}>()
-
-const trigger = props.trigger ?? defaultTrigger
-
-const isTooltipVisible = ref(false)
-
-const showTooltip = () => {
-  isTooltipVisible.value = true
+// 打开提示框
+const tooltipOpen = () => {
+  isOpen.value = true
+  emits('visible-change', true)
+}
+// 关闭提示框
+const tooltipClose = () => {
+  isOpen.value = false
+  emits('visible-change', false)
 }
 
-const hideTooltip = () => {
-  isTooltipVisible.value = false
-}
+// 防抖
+const openTooltip = debounce(tooltipOpen, props.openDelay)
+const closeTooltip = debounce(tooltipClose, props.closeDelay)
 
-const handleMouseOver = () => {
-  if (trigger === 'hover') {
-    showTooltip()
+// 点击
+const handlePopper = () => {
+  if (isOpen.value) {
+    close()
+  } else {
+    open()
   }
 }
 
-const handleMouseOut = () => {
-  if (trigger === 'hover') {
-    hideTooltip()
+// 最终暴露的打开函数
+const open = () => {
+  closeTooltip.cancel()
+  openTooltip()
+}
+// 最终暴露的关闭函数
+const close = () => {
+  openTooltip.cancel()
+  closeTooltip()
+}
+let events: Record<string, any> = reactive({})
+let outerEvents: Record<string, any> = reactive({})
+const popperOptions = computed(() => {
+  return {
+    placement: props.placement,
+    modifiers: [
+      {
+        name: 'offset',
+        options: {
+          offset: [0, 9],
+        },
+      },
+    ],
+    ...props.popperOptions,
+  }
+})
+const attachEvents = () => {
+  if (props.trigger === 'hover') {
+    events['mouseenter'] = open
+    outerEvents['mouseleave'] = close
+  } else {
+    events['click'] = handlePopper
   }
 }
-
-const handleClick = () => {
-  if (trigger === 'click') {
-    isTooltipVisible.value = !isTooltipVisible.value
-  }
+if (!props.manual) {
+  attachEvents()
 }
-
+// 监听弹框是否关闭
 watch(
-  () => props.trigger,
-  (newTrigger) => {
-    if (newTrigger === 'click' && isTooltipVisible.value) {
-      hideTooltip()
+  isOpen,
+  (newVal) => {
+    if (newVal) {
+      if (triggerNode.value && popperNode.value) {
+        popperInstance = createPopper(triggerNode.value, popperNode.value, popperOptions.value)
+      } else {
+        popperInstance?.destroy()
+      }
     }
   },
-  { immediate: true }
+  { flush: 'post' }
 )
-
-const tooltipClass = computed(() => {
-  return `tooltip-content ${props.position} ${isTooltipVisible.value ? 'active' : ''}`
+// 监听触发方式
+watch(
+  () => props.trigger,
+  (newVal, oldVal) => {
+    if (newVal !== oldVal) {
+      events = {}
+      outerEvents = {}
+      attachEvents()
+    }
+  }
+)
+// 监听是否手动
+watch(
+  () => props.manual,
+  (isManual) => {
+    if (isManual) {
+      events = {}
+      outerEvents = {}
+    } else {
+      attachEvents()
+    }
+  }
+)
+// 点击组件外部也会关闭提示框
+useCilckOutside(popperContainNode, () => {
+  if (props.trigger && isOpen.value && !props.manual) {
+    close()
+  }
+  if (isOpen.value) {
+    emits('click-outside', true)
+  }
+})
+onMounted(() => {
+  popperInstance?.destroy()
+})
+defineExpose<TooltipInstance>({
+  show: open,
+  hide: close,
 })
 </script>
 
-<style scoped lang="less">
-.tooltip-container {
-  position: relative;
-  display: inline-block;
-}
-
-.tooltip-content {
-  position: absolute;
-  background-color: #333;
-  color: #fff;
-  padding: 5px;
-  border-radius: 3px;
-  font-size: 12px;
-  white-space: nowrap;
-  visibility: hidden;
-  opacity: 0;
-  transition:
-    visibility 0s linear 0.3s,
-    opacity 0.3s linear;
-}
-
-.tooltip-content.active {
-  visibility: visible;
-  opacity: 1;
-  transition-delay: 0s;
-}
-
-.tooltip-content.top {
-  bottom: calc(100% + 3px);
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.tooltip-content.top-start {
-  bottom: calc(100% + 3px);
-  left: 0;
-  transform: translateX(0%);
-  border-radius: 3px 3px 3px 0;
-}
-
-.tooltip-content.top-end {
-  bottom: calc(100% + 3px);
-  right: 0;
-  transform: translateX(0);
-  border-radius: 3px 3px 0;
-}
-
-.tooltip-content.bottom {
-  top: calc(100% + 3px);
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.tooltip-content.bottom-start {
-  top: calc(100% + 3px);
-  left: 0;
-  transform: translateX(0%);
-  border-radius: 0 3px 3px;
-}
-
-.tooltip-content.bottom-end {
-  top: calc(100% + 3px);
-  right: 0;
-  transform: translateX(0%);
-  border-radius: 3px 0 3px 3px;
-}
-
-.tooltip-content.left {
-  top: 50%;
-  right: calc(100% + 6px);
-  transform: translateY(-50%);
-}
-
-.tooltip-content.right {
-  top: 50%;
-  left: calc(100% + 6px);
-  transform: translateY(-50%);
-}
-
-.tooltip-content::before {
-  content: '';
-  position: absolute;
-  width: 0;
-  height: 0;
-  border-style: solid;
-}
-
-.tooltip-content.top::before {
-  bottom: -6px;
-  left: 50%;
-  border-width: 6px 6px 0;
-  border-color: #333 transparent transparent transparent;
-  transform: translateX(-50%);
-}
-
-.tooltip-content.bottom::before {
-  top: -6px;
-  left: 50%;
-  border-width: 0 6px 6px;
-  border-color: transparent transparent #333 transparent;
-  transform: translateX(-50%);
-}
-
-.tooltip-content.left::before {
-  top: 50%;
-  right: -6px;
-  border-width: 6px 0 6px 6px;
-  border-color: transparent transparent transparent #333;
-  transform: translateY(-50%);
-}
-
-.tooltip-content.right::before {
-  top: 50%;
-  left: -6px;
-  border-width: 6px 6px 6px 0;
-  border-color: transparent #333 transparent transparent;
-  transform: translateY(-50%);
-}
-
-.tooltip-content.top-start::before {
-  bottom: -6px;
-  left: 0;
-  border-width: 6px 6px 0;
-  border-color: #333 transparent transparent transparent;
-}
-
-.tooltip-content.top-end::before {
-  bottom: -6px;
-  right: 0;
-  border-width: 6px 6px 0;
-  border-color: #333 transparent transparent transparent;
-}
-
-.tooltip-content.bottom-start::before {
-  top: -6px;
-  left: 0;
-  border-width: 0 6px 6px;
-  border-color: transparent transparent #333 transparent;
-}
-
-.tooltip-content.bottom-end::before {
-  top: -6px;
-  right: 0;
-  border-width: 0 6px 6px;
-  border-color: transparent transparent #333 transparent;
-}
-
-.tooltip-content.left-start::before {
-  top: 6px;
-  right: -6px;
-  border-width: 6px 6px 6px 0;
-  border-color: transparent #333 transparent transparent;
-}
-
-.tooltip-content.left-end::before {
-  bottom: 6px;
-  right: -6px;
-  border-width: 6px 6px 6px 0;
-  border-color: transparent #333 transparent transparent;
-}
-
-.tooltip-content.right-start::before {
-  top: 6px;
-  left: -6px;
-  border-width: 6px 0 6px 6px;
-  border-color: transparent transparent transparent #333;
-}
-
-.tooltip-content.right-end::before {
-  bottom: 6px;
-  left: -6px;
-  border-width: 6px 0 6px 6px;
-  border-color: transparent transparent transparent #333;
-}
-</style>
+<template>
+  <div class="p-tooltip" ref="popperContainNode" v-on="outerEvents">
+    <!-- 触发节点 -->
+    <div class="p-tooltip__trigger" v-on="events" ref="triggerNode">
+      <slot></slot>
+    </div>
+    <Transition :name="transition">
+      <!-- 显示提示框 -->
+      <div v-if="isOpen" class="p-tooltip__popper" ref="popperNode">
+        <slot name="content">{{ content }}</slot>
+        <div id="arrow" data-popper-arrow></div>
+      </div>
+    </Transition>
+  </div>
+</template>

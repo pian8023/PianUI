@@ -12,14 +12,15 @@
 
     <h3>Button size</h3>
     <div style="margin-bottom: 10px">
-      <p-button type="primary" size="small">primary</p-button>
-      <p-button type="primary" size="mini">primary</p-button>
+      <p-button type="primary" size="small">small</p-button>
+      <p-button type="primary" plain>default</p-button>
+      <p-button type="primary" size="large">large</p-button>
     </div>
     <div></div>
     <h3>Button round</h3>
     <div style="margin-bottom: 10px">
-      <p-button round>default</p-button>
-      <p-button type="primary" round>primary</p-button>
+      <p-button round>round</p-button>
+      <p-button type="primary" circle>primary</p-button>
     </div>
 
     <h3>Button disabled</h3>
@@ -32,6 +33,7 @@
     <div>
       <p-button type="primary" :icon="['fas', 'user']">primary</p-button>
       <p-button icon="heart"></p-button>
+      <p-button icon="star"></p-button>
     </div>
 
     <h3>Button loading</h3>

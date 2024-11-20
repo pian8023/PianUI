@@ -1,32 +1,38 @@
 <template>
   <button
     class="p-button"
-    :class="[
-      size && `p-button--${size}`,
-      `p-button__${type}`,
-      { 'p-button--icon': icon },
-      { 'is-plain': plain },
-      { 'is-disabled': disabled || loading },
-      { 'is-round': round },
-    ]"
-    :disabled="disabled || loading">
-    <div class="p-button__inner">
-      <p-icon v-if="loading" :icon="['fas', 'fa-spinner']"></p-icon>
+    ref="_ref"
+    :class="{
+      [`p-button--${type}`]: type,
+      [`p-button--${size}`]: size,
+      'is-plain': plain,
+      'is-round': round,
+      'is-circle': circle,
+      'is-disabled': disabled,
+    }"
+    :disabled="disabled || loading"
+    :autofocus="autofocus"
+    :type="nativeType">
+    <p-icon v-if="loading" icon="spinner" spin></p-icon>
+    <p-icon v-if="icon" :icon="icon"></p-icon>
 
-      <p-icon v-if="icon" :icon="icon"></p-icon>
-      <span v-if="$slots.default">
-        <slot />
-      </span>
-    </div>
+    <span>
+      <slot />
+    </span>
   </button>
 </template>
 
 <script setup lang="ts">
-import { buttonProps } from './types'
-
+import { ref } from 'vue'
+import type { ButtonProps } from './types'
 defineOptions({
   name: 'p-button',
 })
-
-defineProps(buttonProps)
+withDefaults(defineProps<ButtonProps>(), {
+  nativeType: 'button',
+})
+const _ref = ref<HTMLButtonElement>()
+defineExpose({
+  ref: _ref,
+})
 </script>
